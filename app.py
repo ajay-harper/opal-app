@@ -284,6 +284,75 @@ for env_path in [Path(__file__).parent / ".env"]:
                 os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
 
+def merge_extractions(extractions):
+    """Merge multiple extraction results into a single unified JSON.
+    First-non-empty-wins for each coverage section; carriers are deduped by name.
+    """
+    if len(extractions) == 1:
+        return extractions[0]
+
+    merged = {
+        "_notes": [],
+        "producer": {},
+        "insured": {},
+        "carriers": [],
+        "acord25": {
+            "certificateNumber": "",
+            "gl": {}, "auto": {}, "umbrella": {}, "workersComp": {},
+            "descriptionOfOperations": "",
+            "certificateHolder": {},
+            "endorsements": {},
+        },
+        "acord27": None,
+        "acord28": None,
+        "acord30": None,
+    }
+
+    seen_carriers = {}
+
+    for ext in extractions:
+        merged["_notes"].extend(ext.get("_notes", []))
+
+        if not merged["producer"].get("name") and ext.get("producer", {}).get("name"):
+            merged["producer"] = ext["producer"]
+        if not merged["insured"].get("name") and ext.get("insured", {}).get("name"):
+            merged["insured"] = ext["insured"]
+
+        for c in ext.get("carriers", []):
+            name = c.get("name", "")
+            if name and name not in seen_carriers:
+                seen_carriers[name] = c
+
+        a25 = ext.get("acord25") or {}
+        for section in ["gl", "auto", "umbrella", "workersComp"]:
+            src = a25.get(section) or {}
+            dst = merged["acord25"][section]
+            if src.get("policyNumber") and not dst.get("policyNumber"):
+                merged["acord25"][section] = src
+
+        for k, v in a25.get("endorsements", {}).items():
+            if v:
+                merged["acord25"]["endorsements"][k] = v
+
+        if not merged["acord25"]["certificateHolder"].get("name"):
+            merged["acord25"]["certificateHolder"] = a25.get("certificateHolder", {})
+        if not merged["acord25"]["certificateNumber"] and a25.get("certificateNumber"):
+            merged["acord25"]["certificateNumber"] = a25["certificateNumber"]
+
+        for form in ["acord27", "acord28", "acord30"]:
+            if merged[form] is None and ext.get(form) is not None:
+                merged[form] = ext[form]
+
+    carriers = list(seen_carriers.values())
+    for i, c in enumerate(carriers):
+        c["letter"] = chr(65 + i)
+    merged["carriers"] = carriers
+
+    merged["_notes"].insert(0, f"Merged extractions from {len(extractions)} documents")
+
+    return merged
+
+
 def main():
     st.title("Opal V3 Direct — COI Generator")
     st.caption("Direct Claude extraction (2 calls per file) — no reconciliation, no NAIC enrichment")
@@ -403,7 +472,10 @@ def main():
             elapsed = time.time() - start
             progress.progress(100, text=f"Done in {elapsed:.1f}s")
 
-            primary = all_extractions[0] if all_extractions else {}
+            if len(all_extractions) > 1:
+                primary = merge_extractions(all_extractions)
+            else:
+                primary = all_extractions[0] if all_extractions else {}
 
             st.session_state["extraction_result"] = primary
             st.session_state["classifications"] = all_classifications

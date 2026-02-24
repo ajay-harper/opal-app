@@ -114,6 +114,7 @@ NAIC_CODES = {
     "United National Insurance Company": "13064",
     "Westchester Surplus Lines Insurance Company": "10172",
     "XL Specialty Insurance Company": "37885",
+    "Starstone Specialty Insurance Company": "44776",
 }
 
 # ── Configuration ───────────────────────────────────────────────────
@@ -363,7 +364,7 @@ ACORD25_FIELDS = {
     "WorkersCompensationEmployersLiability_WorkersCompensationStatutoryLimitIndicator_A": lambda d: bool(_wc(d, "eachAccident")),
     "WorkersCompensationEmployersLiability_OtherCoverageIndicator_A":    lambda d: False,
     "WorkersCompensationEmployersLiability_OtherCoverageDescription_A":  lambda d: "",
-    "WorkersCompensationEmployersLiability_AnyPersonsExcludedIndicator_A": lambda d: "N",
+    "WorkersCompensationEmployersLiability_AnyPersonsExcludedIndicator_A": lambda d: "",
 
     "WorkersCompensationEmployersLiability_EmployersLiability_EachAccidentLimitAmount_A":       lambda d: _fm(_wc(d, "eachAccident")),
     "WorkersCompensationEmployersLiability_EmployersLiability_DiseaseEachEmployeeLimitAmount_A": lambda d: _fm(_wc(d, "diseaseEachEmployee")),
@@ -689,7 +690,7 @@ ACORD30_FIELDS = {
     "F[0].P1[0].WorkersCompensationEmployersLiability_WorkersCompensationStatutoryLimitIndicator_A[0]": lambda d: bool(_a30_wc(d, "eachAccident")),
     "F[0].P1[0].WorkersCompensationEmployersLiability_OtherCoverageIndicator_A[0]":    lambda d: False,
     "F[0].P1[0].WorkersCompensationEmployersLiability_OtherCoverageDescription_A[0]":  lambda d: "",
-    "F[0].P1[0].WorkersCompensationEmployersLiability_AnyPersonsExcludedIndicator_A[0]": lambda d: "N",
+    "F[0].P1[0].WorkersCompensationEmployersLiability_AnyPersonsExcludedIndicator_A[0]": lambda d: "",
 
     "F[0].P1[0].WorkersCompensationEmployersLiability_EmployersLiability_EachAccidentLimitAmount_A[0]":       lambda d: _fm(_a30_wc(d, "eachAccident")),
     "F[0].P1[0].WorkersCompensationEmployersLiability_EmployersLiability_DiseaseEachEmployeeLimitAmount_A[0]": lambda d: _fm(_a30_wc(d, "diseaseEachEmployee")),
