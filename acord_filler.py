@@ -213,6 +213,19 @@ def _wc(d, k):
     v = (d.get("acord25") or {}).get("workersComp", {}).get(k, "")
     return _fm(v) if isinstance(v, (int, float)) else v
 
+# Coverage existence helpers
+def _has_gl(d):
+    return bool(_gl(d, "policyNumber") or _glL(d, "eachOccurrence") or _glL(d, "generalAggregate"))
+
+def _has_auto(d):
+    return bool(_au(d, "policyNumber") or _au(d, "combinedSingleLimit"))
+
+def _has_umbrella(d):
+    return bool(_um(d, "policyNumber") or _um(d, "eachOccurrence"))
+
+def _has_wc(d):
+    return bool(_wc(d, "policyNumber") or _wc(d, "eachAccident"))
+
 # ACORD 27 accessors
 def _a27(d, k): return (d.get("acord27") or {}).get(k, "")
 def _a27c(d, k): return (d.get("acord27") or {}).get("coverages", {}).get(k)
@@ -274,12 +287,12 @@ ACORD25_FIELDS = {
     "Insurer_NAICCode_F": lambda d: _carrier_naic(d, "F"),
 
     # ── General Liability ───────────────────────────────────────────
-    "GeneralLiability_InsurerLetterCode_A":          lambda d: _gl(d, "insurerLetter"),
+    "GeneralLiability_InsurerLetterCode_A":          lambda d: _gl(d, "insurerLetter") or ("A" if _has_gl(d) else ""),
     "Policy_GeneralLiability_PolicyNumberIdentifier_A": lambda d: _gl(d, "policyNumber"),
     "Policy_GeneralLiability_EffectiveDate_A":       lambda d: _gl(d, "effectiveDate"),
     "Policy_GeneralLiability_ExpirationDate_A":      lambda d: _gl(d, "expirationDate"),
 
-    "GeneralLiability_CoverageIndicator_A":          lambda d: bool(_gl(d, "policyNumber")),
+    "GeneralLiability_CoverageIndicator_A":          lambda d: _has_gl(d),
     "GeneralLiability_ClaimsMadeIndicator_A":        lambda d: bool(_gl(d, "claimsMade")),
     "GeneralLiability_OccurrenceIndicator_A":        lambda d: bool(_gl(d, "occurrence")),
 
@@ -290,7 +303,7 @@ ACORD25_FIELDS = {
     "GeneralLiability_GeneralAggregate_LimitAmount_A":                       lambda d: _glL(d, "generalAggregate"),
     "GeneralLiability_ProductsAndCompletedOperations_AggregateLimitAmount_A": lambda d: _glL(d, "productsCompOp"),
 
-    "GeneralLiability_GeneralAggregate_LimitAppliesPerPolicyIndicator_A":   lambda d: True,
+    "GeneralLiability_GeneralAggregate_LimitAppliesPerPolicyIndicator_A":   lambda d: _has_gl(d),
     "GeneralLiability_GeneralAggregate_LimitAppliesPerProjectIndicator_A":  lambda d: False,
     "GeneralLiability_GeneralAggregate_LimitAppliesPerLocationIndicator_A": lambda d: False,
     "GeneralLiability_GeneralAggregate_LimitAppliesToOtherIndicator_A":     lambda d: False,
@@ -308,7 +321,7 @@ ACORD25_FIELDS = {
     "Policy_GeneralLiability_SubrogationWaivedCode_A":                 lambda d: "Y" if _gl(d, "policyNumber") and _a25e(d, "waiverOfSubrogation") else "",
 
     # ── Automobile Liability ────────────────────────────────────────
-    "Vehicle_InsurerLetterCode_A":                       lambda d: _au(d, "insurerLetter"),
+    "Vehicle_InsurerLetterCode_A":                       lambda d: _au(d, "insurerLetter") or ("A" if _has_auto(d) else ""),
     "Policy_AutomobileLiability_PolicyNumberIdentifier_A": lambda d: _au(d, "policyNumber"),
     "Policy_AutomobileLiability_EffectiveDate_A":        lambda d: _au(d, "effectiveDate"),
     "Policy_AutomobileLiability_ExpirationDate_A":       lambda d: _au(d, "expirationDate"),
@@ -334,7 +347,7 @@ ACORD25_FIELDS = {
     "Policy_AutomobileLiability_SubrogationWaivedCode_A":                 lambda d: "Y" if _au(d, "policyNumber") and _a25e(d, "waiverOfSubrogation") else "",
 
     # ── Umbrella / Excess ───────────────────────────────────────────
-    "ExcessUmbrella_InsurerLetterCode_A":            lambda d: _um(d, "insurerLetter"),
+    "ExcessUmbrella_InsurerLetterCode_A":            lambda d: _um(d, "insurerLetter") or ("A" if _has_umbrella(d) else ""),
     "Policy_ExcessLiability_PolicyNumberIdentifier_A": lambda d: _um(d, "policyNumber"),
     "Policy_ExcessLiability_EffectiveDate_A":        lambda d: _um(d, "effectiveDate"),
     "Policy_ExcessLiability_ExpirationDate_A":       lambda d: _um(d, "expirationDate"),
@@ -356,7 +369,7 @@ ACORD25_FIELDS = {
     "Policy_ExcessLiability_SubrogationWaivedCode_A":                 lambda d: "Y" if _um(d, "policyNumber") and _a25e(d, "waiverOfSubrogation") else "",
 
     # ── Workers Compensation ────────────────────────────────────────
-    "WorkersCompensationEmployersLiability_InsurerLetterCode_A":    lambda d: _wc(d, "insurerLetter"),
+    "WorkersCompensationEmployersLiability_InsurerLetterCode_A":    lambda d: _wc(d, "insurerLetter") or ("A" if _has_wc(d) else ""),
     "Policy_WorkersCompensationAndEmployersLiability_PolicyNumberIdentifier_A": lambda d: _wc(d, "policyNumber"),
     "Policy_WorkersCompensationAndEmployersLiability_EffectiveDate_A":         lambda d: _wc(d, "effectiveDate"),
     "Policy_WorkersCompensationAndEmployersLiability_ExpirationDate_A":        lambda d: _wc(d, "expirationDate"),
@@ -530,6 +543,18 @@ def _a30_wc(d, k):
 def _a30e(d, k): return (d.get("acord30") or d.get("acord28") or {}).get("endorsements", {}).get(k, False)
 def _a30_ch(d, k): return (d.get("acord30") or d.get("acord28") or {}).get("certificateHolder", {}).get(k, "")
 
+def _has_a30_garage(d):
+    return bool(_a30(d, "policyNumber") or _a30_gl(d, "autoOnlyEachAccident"))
+
+def _has_a30_cgl(d):
+    return bool(_a30_cgl(d, "included") or _a30_cgl(d, "eachOccurrence") or _a30_cgl(d, "generalAggregate"))
+
+def _has_a30_umbrella(d):
+    return bool(_a30_umb(d, "policyNumber") or _a30_umb(d, "eachOccurrence"))
+
+def _has_a30_wc(d):
+    return bool(_a30_wc(d, "policyNumber") or _a30_wc(d, "eachAccident"))
+
 ACORD30_FIELDS = {
     # ── Header ──────────────────────────────────────────────────────
     "F[0].P1[0].Form_CompletionDate_A[0]": lambda d: datetime.now().strftime("%m/%d/%Y"),
@@ -573,7 +598,7 @@ ACORD30_FIELDS = {
     "F[0].P1[0].Insurer_NAICCode_F[0]": lambda d: _carrier_naic(d, "F"),
 
     # ── Garage Liability (Row A) ────────────────────────────────────
-    "F[0].P1[0].GarageLiability_InsurerLetterCode_A[0]":  lambda d: _a30(d, "insurerLetter"),
+    "F[0].P1[0].GarageLiability_InsurerLetterCode_A[0]":  lambda d: _a30(d, "insurerLetter") or ("A" if _has_a30_garage(d) else ""),
     "F[0].P1[0].Policy_PolicyNumberIdentifier_A[0]":      lambda d: _a30(d, "policyNumber"),
     "F[0].P1[0].Policy_EffectiveDate_A[0]":               lambda d: _a30(d, "effectiveDate"),
     "F[0].P1[0].Policy_ExpirationDate_A[0]":              lambda d: _a30(d, "expirationDate"),
@@ -593,7 +618,7 @@ ACORD30_FIELDS = {
     "F[0].P1[0].Policy_SubrogationWaivedCode_A[0]":                 lambda d: "Y" if _a30(d, "policyNumber") and _a30e(d, "waiverOfSubrogation") else "",
 
     # ── Garage Keepers (Row B) ──────────────────────────────────────
-    "F[0].P1[0].GarageKeepersLiability_InsurerLetterCode_A[0]":    lambda d: _a30(d, "insurerLetter"),
+    "F[0].P1[0].GarageKeepersLiability_InsurerLetterCode_A[0]":    lambda d: _a30(d, "insurerLetter") or ("A" if _has_a30_garage(d) else ""),
     "F[0].P1[0].Policy_PolicyNumberIdentifier_B[0]":               lambda d: _a30(d, "policyNumber"),
     "F[0].P1[0].Policy_EffectiveDate_B[0]":                        lambda d: _a30(d, "effectiveDate"),
     "F[0].P1[0].Policy_ExpirationDate_B[0]":                       lambda d: _a30(d, "expirationDate"),
@@ -619,12 +644,12 @@ ACORD30_FIELDS = {
     "F[0].P1[0].Policy_SubrogationWaivedCode_B[0]":                 lambda d: "",
 
     # ── General Liability (Row C) ───────────────────────────────────
-    "F[0].P1[0].GeneralLiability_InsurerLetterCode_A[0]":          lambda d: _a30(d, "insurerLetter") if _a30_cgl(d, "included") else "",
+    "F[0].P1[0].GeneralLiability_InsurerLetterCode_A[0]":          lambda d: (_a30(d, "insurerLetter") or ("A" if _has_a30_cgl(d) else "")) if _has_a30_cgl(d) else "",
     "F[0].P1[0].Policy_PolicyNumberIdentifier_C[0]":               lambda d: _a30(d, "policyNumber") if _a30_cgl(d, "included") else "",
     "F[0].P1[0].Policy_EffectiveDate_C[0]":                        lambda d: _a30(d, "effectiveDate") if _a30_cgl(d, "included") else "",
     "F[0].P1[0].Policy_ExpirationDate_C[0]":                       lambda d: _a30(d, "expirationDate") if _a30_cgl(d, "included") else "",
 
-    "F[0].P1[0].GeneralLiability_CoverageIndicator_A[0]":         lambda d: bool(_a30_cgl(d, "included")),
+    "F[0].P1[0].GeneralLiability_CoverageIndicator_A[0]":         lambda d: _has_a30_cgl(d),
     "F[0].P1[0].GeneralLiability_ClaimsMadeIndicator_A[0]":       lambda d: False,
     "F[0].P1[0].GeneralLiability_OccurrenceIndicator_A[0]":       lambda d: bool(_a30_cgl(d, "included")),
 
@@ -635,7 +660,7 @@ ACORD30_FIELDS = {
     "F[0].P1[0].GeneralLiability_GeneralAggregate_LimitAmount_A[0]":                       lambda d: _fm(_a30_cgl(d, "generalAggregate")),
     "F[0].P1[0].GeneralLiability_ProductsAndCompletedOperations_AggregateLimitAmount_A[0]": lambda d: _fm(_a30_cgl(d, "productsCompOp")),
 
-    "F[0].P1[0].GeneralLiability_GeneralAggregate_LimitAppliesPerPolicyIndicator_A[0]":   lambda d: bool(_a30_cgl(d, "included")),
+    "F[0].P1[0].GeneralLiability_GeneralAggregate_LimitAppliesPerPolicyIndicator_A[0]":   lambda d: _has_a30_cgl(d),
     "F[0].P1[0].GeneralLiability_GeneralAggregate_LimitAppliesPerProjectIndicator_A[0]":  lambda d: False,
     "F[0].P1[0].GeneralLiability_GeneralAggregate_LimitAppliesPerLocationIndicator_A[0]": lambda d: False,
 
@@ -660,7 +685,7 @@ ACORD30_FIELDS = {
     "F[0].P1[0].Policy_SubrogationWaivedCode_D[0]":     lambda d: "",
 
     # ── Umbrella / Excess (Row E) ───────────────────────────────────
-    "F[0].P1[0].ExcessUmbrella_InsurerLetterCode_A[0]":           lambda d: _a30_umb(d, "insurerLetter"),
+    "F[0].P1[0].ExcessUmbrella_InsurerLetterCode_A[0]":           lambda d: _a30_umb(d, "insurerLetter") or ("A" if _has_a30_umbrella(d) else ""),
     "F[0].P1[0].Policy_PolicyNumberIdentifier_E[0]":              lambda d: _a30_umb(d, "policyNumber"),
     "F[0].P1[0].Policy_EffectiveDate_E[0]":                       lambda d: _a30_umb(d, "effectiveDate"),
     "F[0].P1[0].Policy_ExpirationDate_E[0]":                      lambda d: _a30_umb(d, "expirationDate"),
@@ -682,7 +707,7 @@ ACORD30_FIELDS = {
     "F[0].P1[0].Policy_SubrogationWaivedCode_E[0]":                 lambda d: "",
 
     # ── Workers Comp (Row F) ────────────────────────────────────────
-    "F[0].P1[0].WorkersCompensationEmployersLiability_InsurerLetterCode_A[0]":    lambda d: _a30_wc(d, "insurerLetter"),
+    "F[0].P1[0].WorkersCompensationEmployersLiability_InsurerLetterCode_A[0]":    lambda d: _a30_wc(d, "insurerLetter") or ("A" if _has_a30_wc(d) else ""),
     "F[0].P1[0].Policy_PolicyNumberIdentifier_F[0]":                              lambda d: _a30_wc(d, "policyNumber"),
     "F[0].P1[0].Policy_EffectiveDate_F[0]":                                       lambda d: _a30_wc(d, "effectiveDate"),
     "F[0].P1[0].Policy_ExpirationDate_F[0]":                                      lambda d: _a30_wc(d, "expirationDate"),

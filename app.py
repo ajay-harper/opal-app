@@ -237,6 +237,55 @@ ALWAYS set `descriptionOfOperations` to `""`. Never populate from document.
 
 Return ONLY the raw JSON object. No markdown fences, no surrounding text."""
 
+RECONCILE_PROMPT = """You are an insurance data reconciliation specialist. You are given multiple JSON extractions from different insurance documents for the SAME insured. Your job is to merge them into a single unified JSON.
+
+## RULES
+
+### Coverage Sections (GL, Auto, Umbrella, Workers Comp)
+- For each coverage section in `acord25` (gl, auto, umbrella, workersComp):
+  - If only ONE extraction has data for that section (has a policyNumber or any limits), use it as-is.
+  - If MULTIPLE extractions have data for the same section, use the one with the most complete data (most non-empty fields, has limits filled in). Note the conflict in `_notes`.
+  - If NO extraction has data for a section, leave it with empty/null values.
+  - NEVER overwrite a populated section with an empty one.
+  - CRITICAL: If ANY extraction contains a policyNumber for a section, the merged result MUST include that policyNumber. A document that lacks a policy number does NOT mean the policy number should be removed — it simply means that document didn't contain it. Always preserve the most specific/complete value found across all extractions for every field.
+
+### Carriers
+- Collect all unique carriers across all extractions (deduplicate by name).
+- Assign letters A, B, C, D, E, F in the order they appear.
+- CRITICAL: Update every `insurerLetter` reference in every coverage section to match the new carrier letter assignments.
+
+### Producer & Insured
+- Use the most complete producer info (most fields filled).
+- Use the most complete insured info.
+
+### Endorsements
+- Union all endorsements across all extractions. If ANY extraction says an endorsement is true, it is true.
+
+### Certificate Holder
+- Use the first non-empty certificate holder.
+
+### ACORD 27 / 28 / 30
+- If only one extraction has the form, use it.
+- If multiple have it, use the most complete one.
+
+### Notes
+- Concatenate all `_notes` from all extractions.
+- Add a note at the top: "Reconciled from N document extractions"
+- If you resolved any conflicts, note what you chose and why.
+
+### Defaults
+- producer.name → "Harper Global Enterprises Inc." (always)
+- producer.contactName → "Dakotah Rice" (always)
+- producer.phone → "470-839-4314" (always)
+- producer.email → "service@harperinsure.com" (always)
+- producer.address → "1035 Rockingham Street, Alpharetta, GA 30022" (always)
+- descriptionOfOperations → "" (always blank)
+- NAIC codes → Leave as "" (handled separately)
+
+## OUTPUT
+
+Return ONLY the raw JSON object using the same template structure as the input extractions. No markdown fences, no surrounding text."""
+
 
 # ── Claude helpers ───────────────────────────────────────────────────
 
@@ -284,73 +333,97 @@ for env_path in [Path(__file__).parent / ".env"]:
                 os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
 
-def merge_extractions(extractions):
-    """Merge multiple extraction results into a single unified JSON.
-    First-non-empty-wins for each coverage section; carriers are deduped by name.
-    """
-    if len(extractions) == 1:
-        return extractions[0]
-
-    merged = {
-        "_notes": [],
-        "producer": {},
-        "insured": {},
-        "carriers": [],
-        "acord25": {
-            "certificateNumber": "",
-            "gl": {}, "auto": {}, "umbrella": {}, "workersComp": {},
-            "descriptionOfOperations": "",
-            "certificateHolder": {},
-            "endorsements": {},
-        },
+def _preserve_fields(reconciled, extractions):
+    """Ensure reconciliation never blanks out fields that existed in any source extraction."""
+    COVERAGE_SECTIONS = {
+        "acord25": ["gl", "auto", "umbrella", "workersComp"],
         "acord27": None,
         "acord28": None,
         "acord30": None,
     }
+    for form_key, sections in COVERAGE_SECTIONS.items():
+        if sections:
+            for section in sections:
+                merged_section = (reconciled.get(form_key) or {}).get(section, {})
+                if not isinstance(merged_section, dict):
+                    continue
+                for ext in extractions:
+                    source_section = (ext.get(form_key) or {}).get(section, {})
+                    if not isinstance(source_section, dict):
+                        continue
+                    for field, value in source_section.items():
+                        if value and not merged_section.get(field):
+                            merged_section[field] = value
+                if merged_section:
+                    reconciled.setdefault(form_key, {})[section] = merged_section
+        else:
+            merged_form = reconciled.get(form_key) or {}
+            if not isinstance(merged_form, dict):
+                continue
+            for ext in extractions:
+                source_form = ext.get(form_key) or {}
+                if not isinstance(source_form, dict):
+                    continue
+                for field, value in source_form.items():
+                    if isinstance(value, dict):
+                        merged_sub = merged_form.get(field, {})
+                        if not isinstance(merged_sub, dict):
+                            continue
+                        for k, v in value.items():
+                            if v and not merged_sub.get(k):
+                                merged_sub[k] = v
+                        merged_form[field] = merged_sub
+                    elif value and not merged_form.get(field):
+                        merged_form[field] = value
+                reconciled[form_key] = merged_form
 
-    seen_carriers = {}
+    for top_key in ["insured", "producer", "endorsements", "certificateHolder"]:
+        merged_top = reconciled.get(top_key, {})
+        if not isinstance(merged_top, dict):
+            continue
+        for ext in extractions:
+            source_top = ext.get(top_key, {})
+            if not isinstance(source_top, dict):
+                continue
+            for field, value in source_top.items():
+                if value and not merged_top.get(field):
+                    merged_top[field] = value
+        reconciled[top_key] = merged_top
 
     for ext in extractions:
-        merged["_notes"].extend(ext.get("_notes", []))
-
-        if not merged["producer"].get("name") and ext.get("producer", {}).get("name"):
-            merged["producer"] = ext["producer"]
-        if not merged["insured"].get("name") and ext.get("insured", {}).get("name"):
-            merged["insured"] = ext["insured"]
-
         for c in ext.get("carriers", []):
             name = c.get("name", "")
-            if name and name not in seen_carriers:
-                seen_carriers[name] = c
+            if not name:
+                continue
+            existing = [x for x in reconciled.get("carriers", []) if x.get("name") == name]
+            if existing:
+                for field, value in c.items():
+                    if value and not existing[0].get(field):
+                        existing[0][field] = value
 
-        a25 = ext.get("acord25") or {}
-        for section in ["gl", "auto", "umbrella", "workersComp"]:
-            src = a25.get(section) or {}
-            dst = merged["acord25"][section]
-            if src.get("policyNumber") and not dst.get("policyNumber"):
-                merged["acord25"][section] = src
+    return reconciled
 
-        for k, v in a25.get("endorsements", {}).items():
-            if v:
-                merged["acord25"]["endorsements"][k] = v
 
-        if not merged["acord25"]["certificateHolder"].get("name"):
-            merged["acord25"]["certificateHolder"] = a25.get("certificateHolder", {})
-        if not merged["acord25"]["certificateNumber"] and a25.get("certificateNumber"):
-            merged["acord25"]["certificateNumber"] = a25["certificateNumber"]
+def reconcile_extractions(client, extractions, classifications):
+    """Send all per-document extractions to Claude for intelligent reconciliation."""
+    labeled = []
+    for i, ext in enumerate(extractions):
+        label = classifications[i]["filename"] if i < len(classifications) else f"Document {i+1}"
+        doc_type = classifications[i]["doc_type"] if i < len(classifications) else "unknown"
+        labeled.append({"source": label, "doc_type": doc_type, "extraction": ext})
 
-        for form in ["acord27", "acord28", "acord30"]:
-            if merged[form] is None and ext.get(form) is not None:
-                merged[form] = ext[form]
+    user_content = [
+        {"type": "text", "text": f"Reconcile these {len(labeled)} extractions into a single unified JSON:\n\n" +
+         json.dumps(labeled, indent=2)},
+    ]
 
-    carriers = list(seen_carriers.values())
-    for i, c in enumerate(carriers):
-        c["letter"] = chr(65 + i)
-    merged["carriers"] = carriers
-
-    merged["_notes"].insert(0, f"Merged extractions from {len(extractions)} documents")
-
-    return merged
+    try:
+        raw = call_claude(client, RECONCILE_PROMPT, user_content, max_tokens=16384)
+        result = json.loads(raw)
+        return _preserve_fields(result, extractions)
+    except Exception as e:
+        st.warning(f"Reconciliation failed: {e}. Using first extraction as fallback.")
+        return extractions[0] if extractions else {}
 
 
 def main():
@@ -439,11 +512,12 @@ def main():
             all_classifications = []
             all_extractions = []
 
+            max_pct = 90 if len(files) > 1 else 100
             for i, f in enumerate(files):
-                file_pct = int((i / len(files)) * 100)
-                step = max(1, int(100 / len(files)))
+                file_pct = int((i / len(files)) * max_pct)
+                step = max(1, int(max_pct / len(files)))
 
-                progress.progress(min(file_pct + step // 4, 99), text=f"Classifying {f['filename']}...")
+                progress.progress(min(file_pct + step // 4, max_pct - 1), text=f"Classifying {f['filename']}...")
                 try:
                     raw = call_claude(client, CLASSIFY_PROMPT, [
                         {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": f["base64"]}},
@@ -458,7 +532,7 @@ def main():
 
                 all_classifications.append({"filename": f["filename"], "doc_type": doc_type, "confidence": confidence})
 
-                progress.progress(min(file_pct + step * 3 // 4, 99), text=f"Extracting {f['filename']} ({doc_type})...")
+                progress.progress(min(file_pct + step * 3 // 4, max_pct - 1), text=f"Extracting {f['filename']} ({doc_type})...")
                 try:
                     raw = call_claude(client, EXTRACT_PROMPT, [
                         {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": f["base64"]}},
@@ -474,7 +548,8 @@ def main():
             progress.progress(100, text=f"Done in {elapsed:.1f}s")
 
             if len(all_extractions) > 1:
-                primary = merge_extractions(all_extractions)
+                progress.progress(95, text="Reconciling extractions across documents...")
+                primary = reconcile_extractions(client, all_extractions, all_classifications)
             else:
                 primary = all_extractions[0] if all_extractions else {}
 
