@@ -303,8 +303,8 @@ ACORD25_FIELDS = {
     "GeneralLiability_OtherCoverageLimitDescription_A": lambda d: "",
 
     # GL endorsements
-    "CertificateOfInsurance_GeneralLiability_AdditionalInsuredCode_A": lambda d: "Y" if _a25e(d, "additionalInsured") else "",
-    "Policy_GeneralLiability_SubrogationWaivedCode_A":                 lambda d: "Y" if _a25e(d, "waiverOfSubrogation") else "",
+    "CertificateOfInsurance_GeneralLiability_AdditionalInsuredCode_A": lambda d: "Y" if _gl(d, "policyNumber") and _a25e(d, "additionalInsured") else "",
+    "Policy_GeneralLiability_SubrogationWaivedCode_A":                 lambda d: "Y" if _gl(d, "policyNumber") and _a25e(d, "waiverOfSubrogation") else "",
 
     # ── Automobile Liability ────────────────────────────────────────
     "Vehicle_InsurerLetterCode_A":                       lambda d: _au(d, "insurerLetter"),
@@ -329,8 +329,8 @@ ACORD25_FIELDS = {
     "Vehicle_OtherCoverage_CoverageDescription_A":      lambda d: "",
     "Vehicle_OtherCoverage_LimitAmount_A":              lambda d: "",
 
-    "CertificateOfInsurance_AutomobileLiability_AdditionalInsuredCode_A": lambda d: "Y" if _a25e(d, "additionalInsured") else "",
-    "Policy_AutomobileLiability_SubrogationWaivedCode_A":                 lambda d: "Y" if _a25e(d, "waiverOfSubrogation") else "",
+    "CertificateOfInsurance_AutomobileLiability_AdditionalInsuredCode_A": lambda d: "Y" if _au(d, "policyNumber") and _a25e(d, "additionalInsured") else "",
+    "Policy_AutomobileLiability_SubrogationWaivedCode_A":                 lambda d: "Y" if _au(d, "policyNumber") and _a25e(d, "waiverOfSubrogation") else "",
 
     # ── Umbrella / Excess ───────────────────────────────────────────
     "ExcessUmbrella_InsurerLetterCode_A":            lambda d: _um(d, "insurerLetter"),
@@ -351,8 +351,8 @@ ACORD25_FIELDS = {
     "ExcessUmbrella_OtherCoverageDescription_A":             lambda d: "",
     "ExcessUmbrella_OtherCoverageLimitAmount_A":             lambda d: "",
 
-    "CertificateOfInsurance_ExcessLiability_AdditionalInsuredCode_A": lambda d: "Y" if _a25e(d, "additionalInsured") else "",
-    "Policy_ExcessLiability_SubrogationWaivedCode_A":                 lambda d: "Y" if _a25e(d, "waiverOfSubrogation") else "",
+    "CertificateOfInsurance_ExcessLiability_AdditionalInsuredCode_A": lambda d: "Y" if _um(d, "policyNumber") and _a25e(d, "additionalInsured") else "",
+    "Policy_ExcessLiability_SubrogationWaivedCode_A":                 lambda d: "Y" if _um(d, "policyNumber") and _a25e(d, "waiverOfSubrogation") else "",
 
     # ── Workers Compensation ────────────────────────────────────────
     "WorkersCompensationEmployersLiability_InsurerLetterCode_A":    lambda d: _wc(d, "insurerLetter"),
@@ -369,7 +369,7 @@ ACORD25_FIELDS = {
     "WorkersCompensationEmployersLiability_EmployersLiability_DiseaseEachEmployeeLimitAmount_A": lambda d: _fm(_wc(d, "diseaseEachEmployee")),
     "WorkersCompensationEmployersLiability_EmployersLiability_DiseasePolicyLimitAmount_A":      lambda d: _fm(_wc(d, "diseasePolicyLimit")),
 
-    "Policy_WorkersCompensation_SubrogationWaivedCode_A": lambda d: "Y" if _a25e(d, "waiverOfSubrogation") else "",
+    "Policy_WorkersCompensation_SubrogationWaivedCode_A": lambda d: "Y" if _wc(d, "policyNumber") and _a25e(d, "waiverOfSubrogation") else "",
 
     # ── Other Policy (blank) ────────────────────────────────────────
     "OtherPolicy_InsurerLetterCode_A":       lambda d: "",
@@ -588,8 +588,8 @@ ACORD30_FIELDS = {
     "F[0].P1[0].GarageLiability_OtherThanAutoOnly_AggregateLimitAmount_A[0]":       lambda d: _fm(_a30_gl(d, "autoOnlyAggregate")),
 
     # Endorsements per row — Row A = Garage Liability
-    "F[0].P1[0].CertificateOfInsurance_AdditionalInsuredCode_A[0]": lambda d: "Y" if _a30e(d, "additionalInsured") else "",
-    "F[0].P1[0].Policy_SubrogationWaivedCode_A[0]":                 lambda d: "Y" if _a30e(d, "waiverOfSubrogation") else "",
+    "F[0].P1[0].CertificateOfInsurance_AdditionalInsuredCode_A[0]": lambda d: "Y" if _a30(d, "policyNumber") and _a30e(d, "additionalInsured") else "",
+    "F[0].P1[0].Policy_SubrogationWaivedCode_A[0]":                 lambda d: "Y" if _a30(d, "policyNumber") and _a30e(d, "waiverOfSubrogation") else "",
 
     # ── Garage Keepers (Row B) ──────────────────────────────────────
     "F[0].P1[0].GarageKeepersLiability_InsurerLetterCode_A[0]":    lambda d: _a30(d, "insurerLetter"),
@@ -645,8 +645,8 @@ ACORD30_FIELDS = {
     "F[0].P1[0].GeneralLiability_OtherCoverageLimitAmount_A[0]":  lambda d: "",
     "F[0].P1[0].GeneralLiability_OtherCoverageLimitDescription_A[0]": lambda d: "",
 
-    "F[0].P1[0].CertificateOfInsurance_AdditionalInsuredCode_C[0]": lambda d: "Y" if _a30e(d, "additionalInsured") else "",
-    "F[0].P1[0].Policy_SubrogationWaivedCode_C[0]":                 lambda d: "Y" if _a30e(d, "waiverOfSubrogation") else "",
+    "F[0].P1[0].CertificateOfInsurance_AdditionalInsuredCode_C[0]": lambda d: "Y" if _a30_cgl(d, "included") and _a30e(d, "additionalInsured") else "",
+    "F[0].P1[0].Policy_SubrogationWaivedCode_C[0]":                 lambda d: "Y" if _a30_cgl(d, "included") and _a30e(d, "waiverOfSubrogation") else "",
 
     # ── Other Policy (Row D — blank) ────────────────────────────────
     "F[0].P1[0].OtherPolicy_InsurerLetterCode_A[0]":    lambda d: "",
@@ -695,7 +695,7 @@ ACORD30_FIELDS = {
     "F[0].P1[0].WorkersCompensationEmployersLiability_EmployersLiability_DiseaseEachEmployeeLimitAmount_A[0]": lambda d: _fm(_a30_wc(d, "diseaseEachEmployee")),
     "F[0].P1[0].WorkersCompensationEmployersLiability_EmployersLiability_DiseasePolicyLimitAmount_A[0]":      lambda d: _fm(_a30_wc(d, "diseasePolicyLimit")),
 
-    "F[0].P1[0].Policy_SubrogationWaivedCode_F[0]": lambda d: "Y" if _a30e(d, "waiverOfSubrogation") else "",
+    "F[0].P1[0].Policy_SubrogationWaivedCode_F[0]": lambda d: "Y" if _a30_wc(d, "policyNumber") and _a30e(d, "waiverOfSubrogation") else "",
 
     # ── Remarks ─────────────────────────────────────────────────────
     "F[0].P1[0].CertificateOfLiabilityInsurance_ACORDForm_RemarkText_A[0]": lambda d: _a30(d, "remarks"),
