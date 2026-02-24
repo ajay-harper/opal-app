@@ -38,11 +38,6 @@ sys.path.insert(0, str(OPAL_V2_DIR))
 
 from acord_filler import fill_pdf, ACORD25_FIELDS, ACORD27_FIELDS, ACORD30_FIELDS, determine_forms
 
-# opal-test for anvil mapper
-OPAL_TEST_DIR = Path(__file__).resolve().parent.parent.parent / "opal-test"
-sys.path.insert(0, str(OPAL_TEST_DIR))
-
-from anvil_mapper import opal_to_anvil, fill_anvil_pdf
 
 FORM_PATHS = {
     "25": str(OPAL_V2_DIR / "forms" / "acord25.pdf"),
@@ -639,75 +634,6 @@ def main():
                 if generated:
                     st.success(f"Generated {len(generated)} ACORD form(s)")
 
-        # ── Section 5: Export via Anvil ───────────────────────────────
-        st.divider()
-        st.header("5. Export via Anvil")
-
-        anvil_api_key = os.environ.get("ANVIL_API_KEY", "EVrpTiOBEL61BwJ6BmGOrggB0NBnDtPw")
-        anvil_template_eid = os.environ.get("ANVIL_TEMPLATE_EID", "5ONfXsEAZgliFdPjR0mA")
-
-        clean = {k: v for k, v in result.items() if not k.startswith("_")}
-        clean["_description"] = result.get("_description", "")
-        default_anvil = opal_to_anvil(clean)
-
-        st.subheader("Edit Anvil Document Fields")
-        st.caption("Review and modify any field before generating the PDF. Changes here go directly to the ACORD form.")
-
-        edited_anvil_str = st.text_area(
-            "Anvil Payload (JSON — edit any field)",
-            value=json.dumps(default_anvil, indent=2),
-            height=400,
-            key="anvil_editor",
-        )
-
-        try:
-            edited_anvil = json.loads(edited_anvil_str)
-            payload_valid = True
-        except json.JSONDecodeError as e:
-            st.error(f"Invalid JSON: {e}")
-            payload_valid = False
-            edited_anvil = default_anvil
-
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🔨 Generate via Anvil", type="primary", disabled=not payload_valid):
-                with st.spinner("Calling Anvil API..."):
-                    try:
-                        pdf_bytes = fill_anvil_pdf(
-                            edited_anvil,
-                            api_key=anvil_api_key,
-                            template_eid=anvil_template_eid,
-                        )
-
-                        insured_name = result.get("insured", {}).get("name", "Unknown").replace(" ", "_")
-                        filename = f"acord25_anvil_{insured_name}.pdf"
-
-                        st.download_button(
-                            "⬇️ Download Anvil ACORD 25",
-                            data=pdf_bytes,
-                            file_name=filename,
-                            mime="application/pdf",
-                            key="dl_anvil",
-                        )
-
-                        b64_pdf = base64.b64encode(pdf_bytes).decode("utf-8")
-                        st.markdown(
-                            f'<iframe src="data:application/pdf;base64,{b64_pdf}" '
-                            f'width="100%" height="800" type="application/pdf"></iframe>',
-                            unsafe_allow_html=True,
-                        )
-
-                        st.success("Anvil PDF generated successfully")
-
-                    except Exception as e:
-                        st.error(f"Anvil export failed: {e}")
-                        import traceback
-                        st.code(traceback.format_exc())
-
-        with col2:
-            if st.button("↩️ Reset to Extraction"):
-                st.session_state["anvil_editor"] = json.dumps(default_anvil, indent=2)
-                st.rerun()
 
 
 if __name__ == "__main__":
