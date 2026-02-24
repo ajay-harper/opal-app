@@ -440,9 +440,10 @@ def main():
             all_extractions = []
 
             for i, f in enumerate(files):
-                pct_base = int((i / len(files)) * 100)
+                file_pct = int((i / len(files)) * 100)
+                step = max(1, int(100 / len(files)))
 
-                progress.progress(pct_base + 5, text=f"Classifying {f['filename']}...")
+                progress.progress(min(file_pct + step // 4, 99), text=f"Classifying {f['filename']}...")
                 try:
                     raw = call_claude(client, CLASSIFY_PROMPT, [
                         {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": f["base64"]}},
@@ -457,7 +458,7 @@ def main():
 
                 all_classifications.append({"filename": f["filename"], "doc_type": doc_type, "confidence": confidence})
 
-                progress.progress(pct_base + 50, text=f"Extracting {f['filename']} ({doc_type})...")
+                progress.progress(min(file_pct + step * 3 // 4, 99), text=f"Extracting {f['filename']} ({doc_type})...")
                 try:
                     raw = call_claude(client, EXTRACT_PROMPT, [
                         {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": f["base64"]}},
