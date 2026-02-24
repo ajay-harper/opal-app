@@ -32,17 +32,14 @@ for env_path in [Path(__file__).resolve().parent / ".env", Path(__file__).resolv
                 k, v = line.split("=", 1)
                 os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
-# Add opal_v2 to path for acord_filler + forms
-OPAL_V2_DIR = Path(__file__).resolve().parent.parent.parent / "opal_v2"
-sys.path.insert(0, str(OPAL_V2_DIR))
+APP_DIR = Path(__file__).resolve().parent
 
 from acord_filler import fill_pdf, ACORD25_FIELDS, ACORD27_FIELDS, ACORD30_FIELDS, determine_forms
 
-
 FORM_PATHS = {
-    "25": str(OPAL_V2_DIR / "forms" / "acord25.pdf"),
-    "27": str(OPAL_V2_DIR / "forms" / "acord27.pdf"),
-    "30": str(OPAL_V2_DIR / "forms" / "acord30.pdf"),
+    "25": str(APP_DIR / "forms" / "acord25.pdf"),
+    "27": str(APP_DIR / "forms" / "acord27.pdf"),
+    "30": str(APP_DIR / "forms" / "acord30.pdf"),
 }
 
 MODEL = "claude-opus-4-6"
@@ -278,7 +275,7 @@ st.set_page_config(
 )
 
 # ── Load env ─────────────────────────────────────────────────────────
-for env_path in [Path(__file__).parent / ".env", OPAL_V2_DIR / ".env"]:
+for env_path in [Path(__file__).parent / ".env"]:
     if env_path.exists():
         for line in env_path.read_text().splitlines():
             line = line.strip()
